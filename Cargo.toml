@@ -1,0 +1,7 @@
+[package]
+name = "nock-interpreter"
+version = "0.1.0"
+authors = ["Alexey Zabelin <hello@alexeyzabelin.com>"]
+edition = "2018"
+
+[dependencies]

@@ -135,13 +135,104 @@ pub fn hax(input: Noun) -> Possibly<Noun> {
                 _ => Err(Error(a)),
             },
         },
-        other => Err(Error(other))
+        other => Err(Error(other)),
     }
 }
 
 // `*`
-pub fn tar(_input: Noun) -> Possibly<Noun> {
-    unimplemented!();
+pub fn tar(input: Noun) -> Possibly<Noun> {
+    match input {
+        Atom(_) => Err(Error(input)),
+
+        Cell(box (a, Cell(box (Cell(box (b, c)), d)))) => Ok(Cell(Box::new((
+            tar(Cell(Box::new((a.clone(), Cell(Box::new((b, c)))))))?,
+            tar(Cell(Box::new((a, d))))?,
+        )))),
+
+        Cell(box (a, Cell(box (Atom(0), b)))) => net(Cell(Box::new((b, a)))),
+
+        Cell(box (_a, Cell(box (Atom(1), b)))) => Ok(b),
+
+        Cell(box (a, Cell(box (Atom(2), Cell(box (b, c)))))) => tar(Cell(Box::new((
+            tar(Cell(Box::new((a.clone(), b))))?,
+            tar(Cell(Box::new((a, c))))?,
+        )))),
+
+        Cell(box (a, Cell(box (Atom(3), b)))) => wut(tar(Cell(Box::new((a, b))))?),
+
+        Cell(box (a, Cell(box (Atom(4), b)))) => lus(tar(Cell(Box::new((a, b))))?),
+
+        Cell(box (a, Cell(box (Atom(5), Cell(box (b, c)))))) => tis(Cell(Box::new((
+            tar(Cell(Box::new((a.clone(), b))))?,
+            tar(Cell(Box::new((a, c))))?,
+        )))),
+
+        Cell(box (a, Cell(box (Atom(6), Cell(box (b, Cell(box (c, d)))))))) => {
+            tar(Cell(Box::new((
+                a.clone(),
+                tar(Cell(Box::new((
+                    (Cell(Box::new((c, d)))),
+                    Cell(Box::new((
+                        Atom(0),
+                        tar(Cell(Box::new((
+                            Cell(Box::new((Atom(2), Atom(3)))),
+                            Cell(Box::new((
+                                Atom(0),
+                                tar(Cell(Box::new((
+                                    a,
+                                    Cell(Box::new((Atom(4), Cell(Box::new((Atom(4), b)))))),
+                                ))))?,
+                            ))),
+                        ))))?,
+                    ))),
+                ))))?,
+            ))))
+        }
+
+        Cell(box (a, Cell(box (Atom(7), Cell(box (b, c)))))) => {
+            tar(Cell(Box::new((tar(Cell(Box::new((a, b))))?, c))))
+        }
+
+        Cell(box (a, Cell(box (Atom(8), Cell(box (b, c)))))) => tar(Cell(Box::new((
+            Cell(Box::new((tar(Cell(Box::new((a.clone(), b))))?, a))),
+            c,
+        )))),
+
+        Cell(box (a, Cell(box (Atom(9), Cell(box (b, c)))))) => tar(Cell(Box::new((
+            tar(Cell(Box::new((a, c))))?,
+            Cell(Box::new((
+                Atom(2),
+                Cell(Box::new((
+                    Cell(Box::new((Atom(0), Atom(1)))),
+                    Cell(Box::new((Atom(0), b))),
+                ))),
+            ))),
+        )))),
+
+        Cell(box (a, Cell(box (Atom(10), Cell(box (Cell(box (b, c)), d)))))) => {
+            hax(Cell(Box::new((
+                b,
+                Cell(Box::new((
+                    tar(Cell(Box::new((a.clone(), c))))?,
+                    tar(Cell(Box::new((a, d))))?,
+                ))),
+            ))))
+        }
+
+        Cell(box (a, Cell(box (Atom(11), Cell(box (Cell(box (_b, c)), d)))))) => {
+            tar(Cell(Box::new((
+                Cell(Box::new((
+                    tar(Cell(Box::new((a.clone(), c))))?,
+                    tar(Cell(Box::new((a, d))))?,
+                ))),
+                Cell(Box::new((Atom(0), Atom(3)))),
+            ))))
+        }
+
+        Cell(box (a, Cell(box (Atom(11), Cell(box (_b, c)))))) => tar(Cell(Box::new((a, c)))),
+
+        other => Err(Error(other)),
+    }
 }
 
 #[cfg(test)]
@@ -207,7 +298,13 @@ mod tests {
             )))),
             Ok(Cell(Box::new((Atom(11), Atom(33)))))
         );
-        assert_eq!(hax(Cell(Box::new((Atom(3), Cell(Box::new((Atom(11), Cell(Box::new((Atom(22), Atom(33))))))))))), Ok(Cell(Box::new((Atom(22), Atom(11))))));
+        assert_eq!(
+            hax(Cell(Box::new((
+                Atom(3),
+                Cell(Box::new((Atom(11), Cell(Box::new((Atom(22), Atom(33)))))))
+            )))),
+            Ok(Cell(Box::new((Atom(22), Atom(11)))))
+        );
         assert_eq!(
             hax(Cell(Box::new((
                 Atom(5),

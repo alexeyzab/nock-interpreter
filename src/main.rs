@@ -87,26 +87,20 @@ pub fn lus(input: Noun) -> Possibly<Noun> {
 // /a                  /a
 pub fn net(input: Noun) -> Possibly<Noun> {
     match input {
-        Cell(box (a, bc)) => match a {
+        Cell(box (a, Cell(box (b, c)))) => match a {
             Atom(i) => match i {
-                1 => Ok(bc),
-                2 => match bc {
-                    Cell(box (b, _)) => Ok(b),
-                    Atom(_) => Err(Error(bc)),
-                },
-                3 => match bc {
-                    Cell(box (_, c)) => Ok(c),
-                    Atom(_) => Err(Error(bc)),
-                },
+                1 => Ok(Cell(Box::new((b, c)))),
+                2 => Ok(b),
+                3 => Ok(c),
                 i if i > 3 => {
-                    let inner_net = net(Cell(Box::new((Atom(i / 2), bc))))?;
+                    let inner_net = net(Cell(Box::new((Atom(i / 2), Cell(Box::new((b, c)))))))?;
                     net(Cell(Box::new((Atom(2 + (i % 2)), inner_net))))
                 }
                 _ => Err(Error(a)),
             },
             other => Err(Error(other)),
         },
-        Atom(_) => Err(Error(input)),
+        other => Err(Error(other)),
     }
 }
 
@@ -118,38 +112,30 @@ pub fn net(input: Noun) -> Possibly<Noun> {
 pub fn hax(input: Noun) -> Possibly<Noun> {
     match input {
         Atom(_) => Err(Error(input)),
-        Cell(box (a, bc)) => match a {
+        Cell(box (a, Cell(box (b, c)))) => match a {
             Cell(_) => Err(Error(a)),
             Atom(i) => match i {
-                1 => match bc {
-                    Atom(_) => Err(Error(bc)),
-                    Cell(box (b, _)) => Ok(b),
-                },
-                n if n % 2 == 0 => match bc {
-                    Atom(_) => Err(Error(bc)),
-                    Cell(box (b, c)) => {
-                        let c_copy = c.clone();
-                        let inner_net = Cell(Box::new((b, net(Cell(Box::new((Atom(n + 1), c))))?)));
-                        hax(Cell(Box::new((
-                            Atom(n / 2),
-                            Cell(Box::new((inner_net, c_copy))),
-                        ))))
-                    }
-                },
-                n if n % 2 == 1 => match bc {
-                    Atom(_) => Err(Error(bc)),
-                    Cell(box (b, c)) => {
-                        let c_copy = c.clone();
-                        let inner_net = Cell(Box::new((net(Cell(Box::new((Atom(n - 1), c))))?, b)));
-                        hax(Cell(Box::new((
-                            Atom((n - 1) / 2),
-                            Cell(Box::new((inner_net, c_copy))),
-                        ))))
-                    }
-                },
+                1 => Ok(b),
+                n if n % 2 == 0 => {
+                    let c_copy = c.clone();
+                    let inner_net = Cell(Box::new((b, net(Cell(Box::new((Atom(n + 1), c))))?)));
+                    hax(Cell(Box::new((
+                        Atom(n / 2),
+                        Cell(Box::new((inner_net, c_copy))),
+                    ))))
+                }
+                n if n % 2 == 1 => {
+                    let c_copy = c.clone();
+                    let inner_net = Cell(Box::new((net(Cell(Box::new((Atom(n - 1), c))))?, b)));
+                    hax(Cell(Box::new((
+                        Atom((n - 1) / 2),
+                        Cell(Box::new((inner_net, c_copy))),
+                    ))))
+                }
                 _ => Err(Error(a)),
             },
         },
+        other => Err(Error(other))
     }
 }
 

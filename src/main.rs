@@ -1,7 +1,7 @@
 #![feature(box_syntax, box_patterns)]
 
 extern crate nom;
-use nom::{IResult};
+use nom::IResult;
 
 use std::fmt;
 use Noun::*;
@@ -9,7 +9,7 @@ use Noun::*;
 fn main() {
     println!(
         "{}",
-        Cell(Box::new((Atom(12), Cell(Box::new((Atom(487), Atom(325)))))))
+        cell(Atom(12), cell(cell(Atom(487), Atom(13)), Atom(325)))
     );
 }
 
@@ -19,11 +19,15 @@ pub enum Noun {
     Cell(Box<(Noun, Noun)>),
 }
 
+pub fn cell(left_noun: Noun, right_noun: Noun) -> Noun {
+    Cell(Box::new((left_noun, right_noun)))
+}
+
 impl fmt::Display for Noun {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let printable = match self {
             Atom(a) => format!("{}", a),
-            Cell(box (n1, n2)) => format!("[{}  {}]", n1, n2),
+            Cell(box (n1, n2)) => format!("[{} {}]", n1, n2),
         };
         write!(f, "{}", printable)
     }
@@ -56,8 +60,6 @@ pub fn eval(expr: Expr) -> Possibly<Noun> {
         Expr::Tar(n) => tar(n),
     }
 }
-
-
 
 // `?`
 // ?[a b]              0
@@ -106,12 +108,12 @@ pub fn net(input: Noun) -> Possibly<Noun> {
     match input {
         Cell(box (a, Cell(box (b, c)))) => match a {
             Atom(i) => match i {
-                1 => Ok(Cell(Box::new((b, c)))),
+                1 => Ok(cell(b, c)),
                 2 => Ok(b),
                 3 => Ok(c),
                 i if i > 3 => {
-                    let inner_net = net(Cell(Box::new((Atom(i / 2), Cell(Box::new((b, c)))))))?;
-                    net(Cell(Box::new((Atom(2 + (i % 2)), inner_net))))
+                    let inner_net = net(cell(Atom(i / 2), cell(b, c)))?;
+                    net(cell(Atom(2 + (i % 2)), inner_net))
                 }
                 _ => Err(Error(a)),
             },
@@ -134,20 +136,12 @@ pub fn hax(input: Noun) -> Possibly<Noun> {
             Atom(i) => match i {
                 1 => Ok(b),
                 n if n % 2 == 0 => {
-                    let c_copy = c.clone();
-                    let inner_net = Cell(Box::new((b, net(Cell(Box::new((Atom(n + 1), c))))?)));
-                    hax(Cell(Box::new((
-                        Atom(n / 2),
-                        Cell(Box::new((inner_net, c_copy))),
-                    ))))
+                    let inner_net = cell(b, net(cell(Atom(n + 1), c.clone()))?);
+                    hax(cell(Atom(n / 2), cell(inner_net, c)))
                 }
                 n if n % 2 == 1 => {
-                    let c_copy = c.clone();
-                    let inner_net = Cell(Box::new((net(Cell(Box::new((Atom(n - 1), c))))?, b)));
-                    hax(Cell(Box::new((
-                        Atom((n - 1) / 2),
-                        Cell(Box::new((inner_net, c_copy))),
-                    ))))
+                    let inner_net = cell(net(cell(Atom(n - 1), c.clone()))?, b);
+                    hax(cell(Atom((n - 1) / 2), cell(inner_net, c)))
                 }
                 _ => Err(Error(a)),
             },
@@ -181,91 +175,61 @@ pub fn tar(input: Noun) -> Possibly<Noun> {
         Atom(_) => Err(Error(input)),
 
         Cell(box (a, Cell(box (Cell(box (b, c)), d)))) => Ok(Cell(Box::new((
-            tar(Cell(Box::new((a.clone(), Cell(Box::new((b, c)))))))?,
-            tar(Cell(Box::new((a, d))))?,
+            tar(cell(a.clone(), cell(b, c)))?,
+            tar(cell(a, d))?,
         )))),
 
-        Cell(box (a, Cell(box (Atom(0), b)))) => net(Cell(Box::new((b, a)))),
+        Cell(box (a, Cell(box (Atom(0), b)))) => net(cell(b, a)),
 
         Cell(box (_a, Cell(box (Atom(1), b)))) => Ok(b),
 
-        Cell(box (a, Cell(box (Atom(2), Cell(box (b, c)))))) => tar(Cell(Box::new((
-            tar(Cell(Box::new((a.clone(), b))))?,
-            tar(Cell(Box::new((a, c))))?,
-        )))),
-
-        Cell(box (a, Cell(box (Atom(3), b)))) => wut(tar(Cell(Box::new((a, b))))?),
-
-        Cell(box (a, Cell(box (Atom(4), b)))) => lus(tar(Cell(Box::new((a, b))))?),
-
-        Cell(box (a, Cell(box (Atom(5), Cell(box (b, c)))))) => tis(Cell(Box::new((
-            tar(Cell(Box::new((a.clone(), b))))?,
-            tar(Cell(Box::new((a, c))))?,
-        )))),
-
-        Cell(box (a, Cell(box (Atom(6), Cell(box (b, Cell(box (c, d)))))))) => {
-            tar(Cell(Box::new((
-                a.clone(),
-                tar(Cell(Box::new((
-                    (Cell(Box::new((c, d)))),
-                    Cell(Box::new((
-                        Atom(0),
-                        tar(Cell(Box::new((
-                            Cell(Box::new((Atom(2), Atom(3)))),
-                            Cell(Box::new((
-                                Atom(0),
-                                tar(Cell(Box::new((
-                                    a,
-                                    Cell(Box::new((Atom(4), Cell(Box::new((Atom(4), b)))))),
-                                ))))?,
-                            ))),
-                        ))))?,
-                    ))),
-                ))))?,
-            ))))
+        Cell(box (a, Cell(box (Atom(2), Cell(box (b, c)))))) => {
+            tar(cell(tar(cell(a.clone(), b))?, tar(cell(a, c))?))
         }
 
-        Cell(box (a, Cell(box (Atom(7), Cell(box (b, c)))))) => {
-            tar(Cell(Box::new((tar(Cell(Box::new((a, b))))?, c))))
+        Cell(box (a, Cell(box (Atom(3), b)))) => wut(tar(cell(a, b))?),
+
+        Cell(box (a, Cell(box (Atom(4), b)))) => lus(tar(cell(a, b))?),
+
+        Cell(box (a, Cell(box (Atom(5), Cell(box (b, c)))))) => {
+            tis(cell(tar(cell(a.clone(), b))?, tar(cell(a, c))?))
         }
 
-        Cell(box (a, Cell(box (Atom(8), Cell(box (b, c)))))) => tar(Cell(Box::new((
-            Cell(Box::new((tar(Cell(Box::new((a.clone(), b))))?, a))),
-            c,
-        )))),
+        Cell(box (a, Cell(box (Atom(6), Cell(box (b, Cell(box (c, d)))))))) => tar(cell(
+            a.clone(),
+            tar(cell(
+                cell(c, d),
+                cell(
+                    Atom(0),
+                    tar(cell(
+                        cell(Atom(2), Atom(3)),
+                        cell(Atom(0), tar(cell(a, cell(Atom(4), cell(Atom(4), b))))?),
+                    ))?,
+                ),
+            ))?,
+        )),
 
-        Cell(box (a, Cell(box (Atom(9), Cell(box (b, c)))))) => tar(Cell(Box::new((
-            tar(Cell(Box::new((a, c))))?,
-            Cell(Box::new((
-                Atom(2),
-                Cell(Box::new((
-                    Cell(Box::new((Atom(0), Atom(1)))),
-                    Cell(Box::new((Atom(0), b))),
-                ))),
-            ))),
-        )))),
+        Cell(box (a, Cell(box (Atom(7), Cell(box (b, c)))))) => tar(cell(tar(cell(a, b))?, c)),
+
+        Cell(box (a, Cell(box (Atom(8), Cell(box (b, c)))))) => {
+            tar(cell(cell(tar(cell(a.clone(), b))?, a), c))
+        }
+
+        Cell(box (a, Cell(box (Atom(9), Cell(box (b, c)))))) => tar(cell(
+            tar(cell(a, c))?,
+            cell(Atom(2), cell(cell(Atom(0), Atom(1)), cell(Atom(0), b))),
+        )),
 
         Cell(box (a, Cell(box (Atom(10), Cell(box (Cell(box (b, c)), d)))))) => {
-            hax(Cell(Box::new((
-                b,
-                Cell(Box::new((
-                    tar(Cell(Box::new((a.clone(), c))))?,
-                    tar(Cell(Box::new((a, d))))?,
-                ))),
-            ))))
+            hax(cell(b, cell(tar(cell(a.clone(), c))?, tar(cell(a, d))?)))
         }
 
-        Cell(box (a, Cell(box (Atom(11), Cell(box (Cell(box (_b, c)), d)))))) => {
-            tar(Cell(Box::new((
-                Cell(Box::new((
-                    tar(Cell(Box::new((a.clone(), c))))?,
-                    tar(Cell(Box::new((a, d))))?,
-                ))),
-                Cell(Box::new((Atom(0), Atom(3)))),
-            ))))
-        }
+        Cell(box (a, Cell(box (Atom(11), Cell(box (Cell(box (_b, c)), d)))))) => tar(cell(
+            cell(tar(cell(a.clone(), c))?, tar(cell(a, d))?),
+            cell(Atom(0), Atom(3)),
+        )),
 
-        Cell(box (a, Cell(box (Atom(11), Cell(box (_b, c)))))) => tar(Cell(Box::new((a, c)))),
+        Cell(box (a, Cell(box (Atom(11), Cell(box (_b, c)))))) => tar(cell(a, c)),
 
         other => Err(Error(other)),
     }
@@ -277,14 +241,14 @@ mod tests {
 
     #[test]
     fn test_wut() {
-        assert_eq!(wut(Cell(Box::new((Atom(1), Atom(2))))), Ok(Atom(0)));
+        assert_eq!(wut(cell(Atom(1), Atom(2))), Ok(Atom(0)));
         assert_eq!(wut(Atom(5)), Ok(Atom(1)));
     }
 
     #[test]
     fn test_tis() {
-        assert_eq!(tis(Cell(Box::new((Atom(1), Atom(1))))), Ok(Atom(0)));
-        assert_eq!(tis(Cell(Box::new((Atom(1), Atom(2))))), Ok(Atom(1)));
+        assert_eq!(tis(cell(Atom(1), Atom(1))), Ok(Atom(0)));
+        assert_eq!(tis(cell(Atom(1), Atom(2))), Ok(Atom(1)));
         assert_eq!(tis(Atom(5)), Err(Error(Atom(5))))
     }
 
@@ -292,7 +256,7 @@ mod tests {
     fn test_lus() {
         assert_eq!(lus(Atom(5)), Ok(Atom(6)));
         assert_eq!(
-            lus(Cell(Box::new((Atom(0), Atom(1))))),
+            lus(cell(Atom(0), Atom(1))),
             Err(Error(Cell(Box::new((Atom(0), Atom(1))))))
         )
     }
@@ -300,59 +264,35 @@ mod tests {
     #[test]
     fn test_net() {
         assert_eq!(
-            net(Cell(Box::new((
-                Atom(1),
-                Cell(Box::new((Atom(531), Cell(Box::new((Atom(25), Atom(99)))))))
-            )))),
-            Ok(Cell(Box::new((
-                Atom(531),
-                Cell(Box::new((Atom(25), Atom(99))))
-            ))))
+            net(cell(Atom(1), cell(Atom(531), cell(Atom(25), Atom(99))))),
+            Ok(cell(Atom(531), cell(Atom(25), Atom(99))))
         );
         assert_eq!(
-            net(Cell(Box::new((
-                Atom(6),
-                Cell(Box::new((Atom(531), Cell(Box::new((Atom(25), Atom(99)))))))
-            )))),
+            net(cell(Atom(6), cell(Atom(531), cell(Atom(25), Atom(99))))),
             Ok(Atom(25))
         );
         assert_eq!(
-            net(Cell(Box::new((
-                Atom(3),
-                Cell(Box::new((Atom(531), Cell(Box::new((Atom(25), Atom(99)))))))
-            )))),
-            Ok(Cell(Box::new((Atom(25), Atom(99)))))
+            net(cell(Atom(3), cell(Atom(531), cell(Atom(25), Atom(99))))),
+            Ok(cell(Atom(25), Atom(99)))
         );
     }
 
     #[test]
     fn test_hax() {
         assert_eq!(
-            hax(Cell(Box::new((
-                Atom(2),
-                Cell(Box::new((Atom(11), Cell(Box::new((Atom(22), Atom(33)))))))
-            )))),
-            Ok(Cell(Box::new((Atom(11), Atom(33)))))
+            hax(cell(Atom(2), cell(Atom(11), cell(Atom(22), Atom(33))))),
+            Ok(cell(Atom(11), Atom(33)))
         );
         assert_eq!(
-            hax(Cell(Box::new((
-                Atom(3),
-                Cell(Box::new((Atom(11), Cell(Box::new((Atom(22), Atom(33)))))))
-            )))),
-            Ok(Cell(Box::new((Atom(22), Atom(11)))))
+            hax(cell(Atom(3), cell(Atom(11), cell(Atom(22), Atom(33))))),
+            Ok(cell(Atom(22), Atom(11)))
         );
         assert_eq!(
-            hax(Cell(Box::new((
+            hax(cell(
                 Atom(5),
-                Cell(Box::new((
-                    Atom(11),
-                    Cell(Box::new((Cell(Box::new((Atom(22), Atom(33)))), Atom(44))))
-                )))
-            )))),
-            Ok(Cell(Box::new((
-                Cell(Box::new((Atom(22), Atom(11)))),
-                Atom(44)
-            ))))
+                cell(Atom(11), cell(cell(Atom(22), Atom(33)), Atom(44)))
+            )),
+            Ok(cell(cell(Atom(22), Atom(11)), Atom(44)))
         )
     }
 }

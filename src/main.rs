@@ -1,6 +1,11 @@
 #![feature(box_syntax, box_patterns)]
 
 extern crate nom;
+use nom::branch::alt;
+use nom::bytes::complete::tag;
+use nom::character::complete::{digit0, one_of};
+use nom::combinator::map_res;
+use nom::error::ErrorKind;
 use nom::IResult;
 
 use std::fmt;
@@ -11,6 +16,9 @@ fn main() {
         "{}",
         cell(Atom(12), cell(cell(Atom(487), Atom(13)), Atom(325)))
     );
+    println!("{:?}", parse_noun("123"));
+    println!("{:?}", parse_noun("[125 [[5 [123 45]] 54]]"));
+    println!("{:?}", parse_expr("*[[[1 2] [3 4]] [0 1]]"))
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -30,6 +38,49 @@ impl fmt::Display for Noun {
             Cell(box (n1, n2)) => format!("[{} {}]", n1, n2),
         };
         write!(f, "{}", printable)
+    }
+}
+
+
+pub fn parse_atom(input: &str) -> IResult<&str, Noun> {
+    let parse_u64 = map_res(digit0, |s: &str| s.parse::<u64>());
+    let (rest, a) = parse_u64(input)?;
+    Ok((rest, Atom(a)))
+}
+
+pub fn parse_noun(input: &str) -> IResult<&str, Noun> {
+    alt((parse_atom, parse_cell))(input)
+}
+
+pub fn parse_cell(input: &str) -> IResult<&str, Noun> {
+    let (input, _) = tag("[")(input)?;
+    let (input, n1) = parse_noun(input)?;
+    let (input, _) = tag(" ")(input)?;
+    let (input, n2) = parse_noun(input)?;
+    let (input, _) = tag("]")(input)?;
+    Ok((input, cell(n1, n2)))
+}
+
+pub fn parse_expr_noun(input: &str) -> IResult<&str, Expr> {
+    let (input, n) = parse_noun(input)?;
+    Ok((input, Expr::Noun(n)))
+}
+
+pub fn parse_expr(input: &str) -> IResult<&str, Expr> {
+    alt((parse_operator, parse_expr_noun))(input)
+}
+
+pub fn parse_operator(input: &str) -> IResult<&str, Expr> {
+    let (input, op) = one_of("?+=/#*")(input)?;
+    let (input, n) = parse_noun(input)?;
+    match op {
+        '?' => Ok((input, Expr::Wut(n))),
+        '+' => Ok((input, Expr::Lus(n))),
+        '=' => Ok((input, Expr::Tis(n))),
+        '/' => Ok((input, Expr::Net(n))),
+        '#' => Ok((input, Expr::Hax(n))),
+        '*' => Ok((input, Expr::Tar(n))),
+        _ => Err(nom::Err::Error((input, ErrorKind::Char))),
     }
 }
 
